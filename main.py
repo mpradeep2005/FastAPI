@@ -20,3 +20,24 @@ def get_all_products():
 @app.get("/product/{id}")
 def get_productby_id(id:int):
     return products[id]
+
+@app.post("/product")
+def post_products(product:product):
+    products.append(product)
+    return product
+
+@app.put("/product/{id}")
+def update_products(id:int,product:product):
+    for i in range(len(products)):
+        if products[i].id==id:
+            products[i]=products
+            return "updated successfully"
+    return "NO products found"
+
+@app.delete("/products")
+def delete_products(id:int):
+    for i in range(len(products)):
+        if products[i].id==id:
+            del products[i]
+            return "deleted successfully"
+    return "No products found"
