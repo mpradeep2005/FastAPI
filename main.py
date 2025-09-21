@@ -1,25 +1,25 @@
 from contextlib import asynccontextmanager
+from typing import List
+
 from fastapi import FastAPI, Depends, HTTPException
+from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy.orm import Session
 
 import model_database
+import schemas
 from database_setup import engine, session_local
-from model_database import Base, Product
-from model import ProductSchema
 
-Base.metadata.create_all(bind=engine)# create tables
+model_database.Base.metadata.create_all(bind=engine)
 
 
-sample_products = [                    # sample products to initialize DB
-    Product(id=1, product_name="pen", product_description="nice pen", price=5),
-    Product(id=2, product_name="box", product_description="nice box", price=50),
-    Product(id=3, product_name="scale", product_description="nice scale", price=15)
+sample_products = [
+    model_database.Product(product_name="pen", product_description="nice pen", price=5),
+    model_database.Product(product_name="box", product_description="nice box", price=50),
+    model_database.Product(product_name="scale", product_description="nice scale", price=15)
 ]
 
-
-
 @asynccontextmanager
-async def life_span(_: FastAPI):                     # Lifespan for startup and shutdown
+async def life_span(_: FastAPI):
     db: Session = session_local()
     try:
         if db.query(model_database.Product).count() == 0:
@@ -34,7 +34,17 @@ async def life_span(_: FastAPI):                     # Lifespan for startup and 
 
 app = FastAPI(lifespan=life_span)
 
-def get_db():                       # Dependency to get DB session
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["http://localhost:3000"],
+    allow_methods=["*"],
+    allow_credentials=True,
+    allow_headers=["*"]
+)
+
+
+# Dependency to get DB
+def get_db():
     db: Session = session_local()
     try:
         yield db
@@ -45,29 +55,33 @@ def get_db():                       # Dependency to get DB session
 def welcome():
     return "Hi, welcome!"
 
-@app.get("/products")
-def get_all_products(db: Session = Depends(get_db)):
-    return db.query(Product).all()
 
-@app.get("/product/{product_id}")
+@app.get("/products", response_model=List[schemas.Product])
+def get_all_products(db: Session = Depends(get_db)):
+    products = db.query(model_database.Product).all()
+    return products
+
+
+@app.get("/product/{product_id}", response_model=schemas.Product)
 def get_product_by_id(product_id: int, db: Session = Depends(get_db)):
-    product = db.query(Product).filter(Product.id == product_id).first()
+    product = db.query(model_database.Product).filter(model_database.Product.id == product_id).first()
     if not product:
         raise HTTPException(status_code=404, detail="Product not found")
     return product
 
 
-@app.post("/product")
-def create_product(product: ProductSchema, db: Session = Depends(get_db)):
-    db.add(product)
+@app.post("/product", response_model=schemas.Product)
+def create_product(product: schemas.ProductCreate, db: Session = Depends(get_db)):
+    db_product = model_database.Product(**product.model_dump())
+    db.add(db_product)
     db.commit()
-    db.refresh(product)
-    return product
+    db.refresh(db_product)
+    return db_product
 
 
-@app.put("/product/{product_id}")
-def update_product(product_id: int, updated_product: ProductSchema, db: Session = Depends(get_db)):
-    db_product = db.query(Product).filter(Product.id == product_id).first()
+@app.put("/product/{product_id}", response_model=schemas.Product)
+def update_product(product_id: int, updated_product: schemas.ProductCreate, db: Session = Depends(get_db)):
+    db_product = db.query(model_database.Product).filter(model_database.Product.id == product_id).first()
     if not db_product:
         raise HTTPException(status_code=404, detail="Product not found")
 
@@ -79,9 +93,10 @@ def update_product(product_id: int, updated_product: ProductSchema, db: Session 
     db.refresh(db_product)
     return db_product
 
+
 @app.delete("/product/{product_id}")
 def delete_product(product_id: int, db: Session = Depends(get_db)):
-    db_product = db.query(Product).filter(Product.id == product_id).first()
+    db_product = db.query(model_database.Product).filter(model_database.Product.id == product_id).first()
     if not db_product:
         raise HTTPException(status_code=404, detail="Product not found")
 

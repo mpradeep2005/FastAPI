@@ -6,4 +6,4 @@ class Product(Base):
     id=Column(Integer,primary_key=True,index=True)
     product_name=Column(String)
     product_description=Column(String)
-    price=Column(Integer)
+    price=Column(Float)
