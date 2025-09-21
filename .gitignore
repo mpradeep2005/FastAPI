@@ -1193,3 +1193,4 @@
 /myenv/Scripts/pythonw.exe
 /myenv/Scripts/uvicorn.exe
 /myenv/pyvenv.cfg
+/frontend/node_modules/
